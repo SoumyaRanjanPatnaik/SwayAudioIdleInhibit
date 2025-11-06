@@ -1,8 +1,7 @@
 # SwayAudioIdleInhibit
 
-Prevents swayidle from sleeping while any application is outputting or
-receiving audio. Should work with all Wayland desktops that support the
-`zwp_idle_inhibit_manager_v1` protocol but only tested in Sway
+Prevents swayidle/hypridle from sleeping while any application is outputting or
+receiving audio. Requires systemd/elogind inhibit support.
 
 This only works for Pulseaudio / Pipewire Pulse
 
@@ -14,8 +13,13 @@ The package is available on the [AUR](https://aur.archlinux.org/packages/sway-au
 Other:
 
 ```zsh
-meson build
-ninja -C build
+# Can compile to use systemd or elogind
+# systemd (default)
+meson setup build -Dlogind-provider=systemd
+# or elogind for systemd-less systems
+meson setup build -Dlogind-provider=elogind
+
+meson compile -C build
 meson install -C build
 ```
 
@@ -47,4 +51,30 @@ Monitor sinks: will print `RUNNING` or `NOT RUNNING`
 
 ```zsh
 sway-audio-idle-inhibit --dry-print-sink
+```
+
+## Waybar Integration
+
+A custom waybar module can be used to display an icon when any application is
+using your mic or playing any audio.
+
+Add the following section to your `~/.config/waybar/config` file and add
+`custom/audio_idle_inhibitor` to either the `modules-left`, `modules-center`
+or `modules-right` list.
+
+*Note: The FontAwesome font is used for the icons below*
+
+```json
+	"custom/audio_idle_inhibitor": {
+		"format": "{icon}",
+		"exec": "sway-audio-idle-inhibit --dry-print-both-waybar",
+		"exec-if": "which sway-audio-idle-inhibit",
+		"return-type": "json",
+		"format-icons": {
+			"output": "",
+			"input": "",
+			"output-input": "  ",
+			"none": ""
+		}
+	},
 ```
