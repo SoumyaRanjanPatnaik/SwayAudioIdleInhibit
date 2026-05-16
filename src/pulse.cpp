@@ -33,9 +33,29 @@ static bool isUncorkedClientStream(int corked, uint32_t client) {
 	return !corked && client != PA_INVALID_INDEX;
 }
 
+static bool isIgnoredApplication(pa_proplist *proplist, char **ignoredApps) {
+	if (!proplist)
+		return false;
+
+	const char *appName = pa_proplist_gets(proplist, "application.name");
+	if (!appName)
+		return false;
+
+	for (int appIndex = 0; appIndex < MAX_IGNORED_APPS; appIndex++) {
+		if (!ignoredApps[appIndex])
+			return false;
+
+		if (strcmp(appName, ignoredApps[appIndex]) == 0)
+			return true;
+	}
+
+	return false;
+}
+
 int Pulse::init(SubscriptionType subscriptionType,
 				pa_subscription_mask_t pa_subscriptionType, EventType eventType,
-				char **ignoredSourceOutputs, bool ignoreMutedStreams) {
+				char **ignoredSinkInputs, char **ignoredSourceOutputs,
+				bool ignoreMutedStreams) {
 	pa_threaded_mainloop *mainloop = getMainLoop();
 	pa_mainloop_api *mainloop_api = getMainLoopApi(mainloop);
 	if (pa_threaded_mainloop_start(mainloop)) {
@@ -43,7 +63,8 @@ int Pulse::init(SubscriptionType subscriptionType,
 		return 1;
 	}
 	connect(mainloop, mainloop_api, subscriptionType, pa_subscriptionType,
-			eventType, ignoredSourceOutputs, ignoreMutedStreams);
+			eventType, ignoredSinkInputs, ignoredSourceOutputs,
+			ignoreMutedStreams);
 	return 0;
 }
 
@@ -51,7 +72,8 @@ void Pulse::sink_input_info_callback(pa_context *, const pa_sink_input_info *i,
 									 int, void *userdata) {
 	Data *data = (Data *)userdata;
 	if (i && isUncorkedClientStream(i->corked, i->client) &&
-		streamPassesVolumeFilter(data, i->mute, i->has_volume, &i->volume))
+		streamPassesVolumeFilter(data, i->mute, i->has_volume, &i->volume) &&
+		!isIgnoredApplication(i->proplist, data->ignoredSinkInputs))
 		data->activeSink = true;
 	pa_threaded_mainloop_signal(data->mainloop, 0);
 }
@@ -60,27 +82,9 @@ void Pulse::source_output_info_callback(pa_context *,
 										const pa_source_output_info *i, int,
 										void *userdata) {
 	Data *data = (Data *)userdata;
-	bool ignoreSourceOutput = false;
-	if (i && i->proplist) {
-		const char *appName = pa_proplist_gets(i->proplist, "application.name");
-		if (appName) {
-			int ignoredSourceOutputsCount = 0;
-			while (data->ignoredSourceOutputs[ignoredSourceOutputsCount] !=
-					   nullptr &&
-				   ignoreSourceOutput == false &&
-				   ignoredSourceOutputsCount < MAX_IGNORED_SOURCE_OUTPUTS) {
-				if (strcmp(appName, data->ignoredSourceOutputs
-										[ignoredSourceOutputsCount]) == 0) {
-					ignoreSourceOutput = true;
-					break;
-				}
-				ignoredSourceOutputsCount++;
-			}
-		}
-	}
 	if (i && isUncorkedClientStream(i->corked, i->client) &&
 		streamPassesVolumeFilter(data, i->mute, i->has_volume, &i->volume) &&
-		!ignoreSourceOutput)
+		!isIgnoredApplication(i->proplist, data->ignoredSourceOutputs))
 		data->activeSource = true;
 	pa_threaded_mainloop_signal(data->mainloop, 0);
 }
@@ -199,11 +203,11 @@ void Pulse::connect(pa_threaded_mainloop *mainloop,
 					pa_mainloop_api *mainloop_api,
 					SubscriptionType subscriptionType,
 					pa_subscription_mask_t pa_subscriptionType,
-					EventType eventType, char **ignoredSourceOutputs,
-					bool ignoreMutedStreams) {
+					EventType eventType, char **ignoredSinkInputs,
+					char **ignoredSourceOutputs, bool ignoreMutedStreams) {
 	Data *data = new Data(mainloop, mainloop_api, subscriptionType,
-						  pa_subscriptionType, eventType, ignoredSourceOutputs,
-						  ignoreMutedStreams);
+						  pa_subscriptionType, eventType, ignoredSinkInputs,
+						  ignoredSourceOutputs, ignoreMutedStreams);
 
 	pa_context *context = getContext(mainloop, mainloop_api, data);
 
