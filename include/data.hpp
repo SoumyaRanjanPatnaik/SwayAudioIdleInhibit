@@ -37,6 +37,7 @@ struct Data {
 	pa_subscription_mask_t pa_subscriptionType;
 
 	char **ignoredSourceOutputs;
+	bool ignoreMutedStreams;
 
 	Idle *idle = NULL;
 
@@ -45,7 +46,7 @@ struct Data {
 	Data(pa_threaded_mainloop *mainloop, pa_mainloop_api *mainloop_api,
 		 SubscriptionType subscriptionType,
 		 pa_subscription_mask_t pa_subscriptionType, EventType eventType,
-		 char **ignoredSourceOutputs);
+		 char **ignoredSourceOutputs, bool ignoreMutedStreams);
 
 	void quit(int returnValue = 0);
 

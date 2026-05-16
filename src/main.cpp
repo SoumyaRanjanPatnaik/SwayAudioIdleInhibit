@@ -27,6 +27,8 @@ void showHelp(char **argv) {
 			"sink is running\n";
 	cout << "\t --dry-print-source \t\t Don't inhibit idle and print if any "
 			"source is running\n";
+	cout << "\t --ignore-muted-streams \t Don't inhibit idle for muted or "
+			"zero-volume streams\n";
 	cout << "\t --ignore-source-outputs \t\t Don't inhibit idle for these "
 			"source outputs\n";
 }
@@ -53,6 +55,7 @@ int main(int argc, char *argv[]) {
 	bool printBothWayBar = false;
 	bool printSource = false;
 	bool printSink = false;
+	bool ignoreMutedStreams = false;
 
 	char *ignoredSourceOutputs[MAX_IGNORED_SOURCE_OUTPUTS] = {nullptr};
 	int ignoredSourceOutputsCount = 0;
@@ -67,6 +70,8 @@ int main(int argc, char *argv[]) {
 				printBoth = true;
 			} else if (strcmp(argv[i], "--dry-print-both-waybar") == 0) {
 				printBothWayBar = true;
+			} else if (strcmp(argv[i], "--ignore-muted-streams") == 0) {
+				ignoreMutedStreams = true;
 			} else if (strcmp(argv[i], "--ignore-source-outputs") == 0 &&
 					   i + 1 < argc) {
 				char *saveptr;
@@ -94,21 +99,25 @@ int main(int argc, char *argv[]) {
 			return EXIT_FAILURE;
 		}
 		return Pulse().init(SUBSCRIPTION_TYPE_IDLE, all_mask, EVENT_TYPE_IDLE,
-							ignoredSourceOutputs);
+							ignoredSourceOutputs, ignoreMutedStreams);
 	} else if (printBoth) {
 		return Pulse().init(SUBSCRIPTION_TYPE_DRY_BOTH, all_mask,
-							EVENT_TYPE_DRY_BOTH, ignoredSourceOutputs);
+							EVENT_TYPE_DRY_BOTH, ignoredSourceOutputs,
+							ignoreMutedStreams);
 	} else if (printBothWayBar) {
 		return Pulse().init(SUBSCRIPTION_TYPE_DRY_BOTH_WAYBAR, all_mask,
-							EVENT_TYPE_DRY_BOTH, ignoredSourceOutputs);
+							EVENT_TYPE_DRY_BOTH, ignoredSourceOutputs,
+							ignoreMutedStreams);
 	} else if (printSink) {
 		return Pulse().init(SUBSCRIPTION_TYPE_DRY_SINK,
 							PA_SUBSCRIPTION_MASK_SINK_INPUT,
-							EVENT_TYPE_DRY_SINK, ignoredSourceOutputs);
+							EVENT_TYPE_DRY_SINK, ignoredSourceOutputs,
+							ignoreMutedStreams);
 	} else if (printSource) {
 		return Pulse().init(SUBSCRIPTION_TYPE_DRY_SOURCE,
 							PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT,
-							EVENT_TYPE_DRY_SOURCE, ignoredSourceOutputs);
+							EVENT_TYPE_DRY_SOURCE, ignoredSourceOutputs,
+							ignoreMutedStreams);
 	}
 	return EXIT_SUCCESS;
 }
